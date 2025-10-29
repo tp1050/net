@@ -21,7 +21,7 @@ def build_reply(query: bytes, fake_ip: str) -> bytes:
             break
         end_q += 1 + query[end_q]
     if query[end_q] == 0:
-        end_q +=r
+        end_q +=1
 
 @app.route('/dns-query', methods=['GET', 'POST'])
 def dns_query():
