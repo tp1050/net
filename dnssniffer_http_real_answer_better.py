@@ -129,6 +129,12 @@ def dns_query():
 # if __name__ == '__main__':
 #     # plain HTTP on TCP/53  (run: sudo python3 doh_real_53.py)
 #     app.run(host='0.0.0.0', port=53002, debug=False)
+# if __name__ == '__main__':
+#     from waitress import serve
+#     serve(app, host='0.0.0.0', port=53002, threads=8)
 if __name__ == '__main__':
-    from waitress import serve
-    serve(app, host='0.0.0.0', port=53002, threads=8)
+    import asyncio, hypercorn.asyncio
+    from hypercorn.config import Config
+    cfg = Config()
+    cfg.bind = ['0.0.0.0:53003']
+    asyncio.run(hypercorn.asyncio.serve(app, cfg))
