@@ -7,6 +7,29 @@ from flask import Flask, request, make_response, abort
 app = Flask(__name__)
 
 # ------------------------------------------------------------------
+def qname_to_str(buf: bytes, offset: int) -> tuple[str, int]:
+    """Unpack DNS domain name (sequence of length-prefixed labels)."""
+    parts, jumped = [], False
+    original_offset = offset
+    while True:
+        if offset >= len(buf):
+            break
+        length = buf[offset]
+        if length == 0:
+            offset += 1
+            break
+        if length & 0xC0:                       # compression pointer
+            if not jumped:
+                original_offset = offset + 2
+            offset = ((length & 0x3F) << 8) | buf[offset+1]
+            jumped = True
+            continue
+        offset += 1
+        parts.append(buf[offset:offset+length].decode('ascii', errors='replace'))
+        offset += length
+    return ".".join(parts), original_offset if jumped else offset
+
+
 def build_reply(query: bytes, fake_ip: str) -> bytes:
     """Return a valid DNS response (QR=1, RA=1, ANCOUNT=1, NSCOUNT=0, ARCOUNT=0)"""
     if len(query) < 12:                          # too short -> FORMERR
@@ -47,6 +70,7 @@ def build_reply(query: bytes, fake_ip: str) -> bytes:
     return bytes(header) + question + answer
 # ------------------------------------------------------------------
 
+
 @app.route('/dns-query', methods=['GET', 'POST'])
 def dns_query():
     if request.method == 'GET':
@@ -63,7 +87,16 @@ def dns_query():
         if not dns_bin:
             abort(400, 'empty body')
 
-    print(datetime.datetime.now(), 'DoH query', len(dns_bin), 'bytes')
+    # ---- pretty-print what was asked ----------------------------
+    try:
+        name, _ = qname_to_str(dns_bin, 12)
+        qtype,  = struct.unpack('!H', dns_bin[-4:-2])
+        type_txt = {1: 'A', 28: 'AAAA', 5: 'CNAME', 15: 'MX', 16: 'TXT'}.get(qtype, f'TYPE{qtype}')
+        print(f"{datetime.datetime.now():%H:%M:%S}  query  {name}  IN  {type_txt}")
+    except Exception as e:
+        print(f"{datetime.datetime.now():%H:%M:%S}  query  <malformed>  ({e})")
+    # --------------------------------------------------------------
+
     reply = build_reply(dns_bin, '1.2.3.4')
     if not reply:
         abort(400, 'malformed DNS message')
@@ -71,6 +104,7 @@ def dns_query():
     response = make_response(reply)
     response.headers['Content-Type'] = 'application/dns-message'
     return response
+
 
 # ------------------------------------------------------------------
 if __name__ == '__main__':
