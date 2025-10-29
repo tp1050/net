@@ -6,22 +6,35 @@ from flask import Flask, request, make_response
 app = Flask(__name__)
 
 def build_reply(query: bytes, fake_ip: str) -> bytes:
+    if len(query) < 12:                       # garbage guard
+        return b''
+
     tx_id, flags, qdcount = struct.unpack('!HHH', query[:6])
 
-    # copy header and fix flags / counts
     header = bytearray(query[:12])
     header[2:4] = struct.pack('!H', 0x8180)   # QR=1, RD=1, RA=1
     header[6:8] = struct.pack('!H', 1)        # ANCOUNT = 1
 
-    # question section is everything up to the first zero-byte + 4 bytes (type+class)
     end_q = 12
-    while query[end_q] != 0:
-        if query[end_q] & 0xC0:               # compression pointer
-            end_q += 2
-            break
-        end_q += 1 + query[end_q]
-    if query[end_q] == 0:
-        end_q +=1
+    try:
+        while query[end_q] != 0:
+            if query[end_q] & 0xC0:
+                end_q += 2
+                break
+            end_q += 1 + query[end_q]
+        if query[end_q] == 0:
+            end_q += 1
+        end_q += 4                             # QTYPE + QCLASS
+        question = query[12:end_q]
+    except IndexError:                         # malformed name
+        return b''
+
+    answer = (
+        b'\xc0\x0c'
+        + struct.pack('!HHIH', 1, 1, 60, 4)
+        + socket.inet_aton(fake_ip)
+    )
+    return bytes(header) + question + answer   # always returns bytes
 
 @app.route('/dns-query', methods=['GET', 'POST'])
 def dns_query():
