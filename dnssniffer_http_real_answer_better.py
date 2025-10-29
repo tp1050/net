@@ -136,5 +136,5 @@ if __name__ == '__main__':
     import asyncio, hypercorn.asyncio
     from hypercorn.config import Config
     cfg = Config()
-    cfg.bind = ['0.0.0.0:53003']
+    cfg.bind = ['0.0.0.0:53002']
     asyncio.run(hypercorn.asyncio.serve(app, cfg))
