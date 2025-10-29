@@ -132,9 +132,17 @@ def dns_query():
 # if __name__ == '__main__':
 #     from waitress import serve
 #     serve(app, host='0.0.0.0', port=53002, threads=8)
+# if __name__ == '__main__':
+#     import asyncio, hypercorn.asyncio
+#     from hypercorn.config import Config
+#     cfg = Config()
+#     cfg.bind = ['0.0.0.0:53002']
+#     asyncio.run(hypercorn.asyncio.serve(app, cfg))
+
 if __name__ == '__main__':
     import asyncio, hypercorn.asyncio
     from hypercorn.config import Config
     cfg = Config()
     cfg.bind = ['0.0.0.0:53002']
+    cfg.alpn_protocols = ['h2', 'http/1.1']   # let ArvanCloud pick h2
     asyncio.run(hypercorn.asyncio.serve(app, cfg))
