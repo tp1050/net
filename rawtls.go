@@ -3,8 +3,8 @@
 package main
 
 import (
-	"crypto/rand"
 	"encoding/binary"
+	"encoding/hex"
 	"flag"
 	"io"
 	"log"
@@ -27,23 +27,32 @@ var (
 )
 
 func init() {
-	if _, err := rand.Read(key[:]); err != nil {
-		log.Fatalf("rand: %v", err)
+	// >>>  SAME 32-BYTE KEY ON BOTH SIDES  <<<
+	// server key from 2025-11-01 21:44  (hex)
+	src := "4ee965a03115fcfbd9fcbc5998e0dca9fd1447839806a26b728185f84646daf4"
+	b, err := hex.DecodeString(src)
+	if err != nil || len(b) != 32 {
+		log.Fatalf("invalid key: %v", err)
 	}
-	log.Printf("symmetric key %x (save this on client side!)", key)
+	copy(key[:], b)
+	log.Printf("using server key %x", key)
 }
 
 func main() {
 	var (
-		listen = flag.String("listen", ":443", "TLS listen address")
-		remote = flag.String("remote", "", "client mode: remote server ip:443")
-		iface  = flag.String("iface", "tun0", "tun interface to use/create")
+		listen = flag.String("listen", "", "server:  :443")
+		remote = flag.String("remote", "", "client:  65.109.204.230:443")
+		iface  = flag.String("iface", "tun0", "tun interface")
 	)
 	flag.Parse()
 
+	if *listen == "" && *remote == "" {
+		log.Fatal("use -listen (server) OR -remote (client)")
+	}
+
 	var err error
-	if *remote == "" {
-		// SERVER mode
+	if *listen != "" {
+		// ----------  SERVER  ----------
 		tun, err = createTUN(*iface)
 		if err != nil {
 			log.Fatalf("tun: %v", err)
@@ -62,7 +71,11 @@ func main() {
 			go tunnel(conn)
 		}
 	} else {
-		// CLIENT mode
+		// ----------  CLIENT  ----------
+		tun, err = createTUN(*iface)
+		if err != nil {
+			log.Fatalf("tun: %v", err)
+		}
 		conn, err := net.Dial("tcp", *remote)
 		if err != nil {
 			log.Fatalf("dial: %v", err)
@@ -72,14 +85,14 @@ func main() {
 	}
 }
 
-/* ---------- framing ---------- */
+/* ----------  data plane  ---------- */
 
 func tunnel(conn net.Conn) {
 	aead, _ := chacha20poly1305.NewX(key[:])
 	var n int
 	buf := make([]byte, MTU+RECORD_OVER)
 	for {
-		// read record length
+		// read 4-byte length
 		if _, err := io.ReadFull(conn, buf[:4]); err != nil {
 			return
 		}
@@ -105,7 +118,7 @@ func tunnel(conn net.Conn) {
 	}
 }
 
-/* ---------- TUN helper ---------- */
+/* ----------  TUN creator  ---------- */
 
 func createTUN(name string) (io.ReadWriter, error) {
 	fd, err := unix.Open("/dev/net/tun", unix.O_RDWR, 0)
@@ -122,7 +135,7 @@ func createTUN(name string) (io.ReadWriter, error) {
 	return os.NewFile(uintptr(fd), name), nil
 }
 
-/* ---------- stub nonce ---------- */
+/* ----------  nonce helper  ---------- */
 func nonce(counter int) []byte {
 	var n [24]byte
 	binary.BigEndian.PutUint64(n[16:], uint64(counter))
