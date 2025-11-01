@@ -1,7 +1,6 @@
 // rawtls.go  —  MIT licence  —  proof-of-concept only
 // Raw-byte tunnel inside kernel-TLS 1.3  (server or client)
 package main
-
 import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -18,9 +17,12 @@ import (
 	"time"
 	"unsafe"
 
+	"math/big" // Add this line
+
 	chacha20poly1305 "golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/sys/unix"
 )
+
 
 const (
 	MTU         = 65535
