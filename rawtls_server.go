@@ -18,6 +18,8 @@ import (
 	"time"
 	"unsafe"
 
+	"math/big"
+
 	chacha20poly1305 "golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/sys/unix"
 )
@@ -167,7 +169,6 @@ func generateSelfSigned() tls.Certificate {
 		NotAfter:     time.Now().Add(365 * 24 * time.Hour),
 	}
 	certDER, _ := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
-	privDER, _ := x509.MarshalECPrivateKey(priv)
 	return tls.Certificate{
 		Certificate: [][]byte{certDER},
 		PrivateKey:  priv,
