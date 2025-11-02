@@ -1,0 +1,46 @@
+{
+    "inbounds": [
+        {
+            "port": 1090,
+            "listen": "127.0.0.1",
+            "protocol": "socks",
+            "settings": {
+                "udp": true,
+                "auth": "noauth"
+            },
+            "sniffing": {
+                "enabled": true,
+                "destOverride": [
+                    "http",
+                    "tls"
+                ]
+            }
+        }
+    ],
+    "outbounds": [
+        {
+            "protocol": "vmess",
+            "settings": {
+                "vnext": [
+                    {
+                        "address": "freesulfat.ir",
+                        "port": 443,
+                        "users": [
+                            {
+                                "id": "909cf2c7-a426-73dd-c025-7cdbc07aefd0",
+                                "alterId": 0
+                            }
+                        ]
+                    }
+                ]
+            },
+            "streamSettings": {
+                "network": "ws",
+                "security": "tls",
+                "wsSettings": {
+                    "path": "/ray"
+                }
+            }
+        }
+    ]
+}
